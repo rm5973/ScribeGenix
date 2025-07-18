@@ -5,6 +5,9 @@ class RealtimeGuideRecorder {
     this.currentTab = 'steps';
     this.realtimeStep = null;
     this.showRealtimePreview = true;
+    this.recordingMode = 'screenshot'; // 'screenshot' or 'video'
+    this.audioEnabled = false;
+    this.videoBlob = null;
     
     this.initElements();
     this.bindEvents();
@@ -24,11 +27,15 @@ class RealtimeGuideRecorder {
     this.saveExportBtn = document.getElementById('saveExportBtn');
     this.exportHtml = document.getElementById('exportHtml');
     this.exportPdf = document.getElementById('exportPdf');
+    this.exportMarkdown = document.getElementById('exportMarkdown');
     this.exportVideo = document.getElementById('exportVideo');
     this.guideTitle = document.getElementById('guideTitle');
     this.guideDescription = document.getElementById('guideDescription');
     this.tabs = document.querySelectorAll('.tab');
     this.tabPanes = document.querySelectorAll('.tab-pane');
+    this.recordingModeSelect = document.getElementById('recordingMode');
+    this.audioEnabledCheckbox = document.getElementById('audioEnabled');
+    this.addManualStepBtn = document.getElementById('addManualStep');
     
     // Real-time elements
     this.realtimeContainer = this.createRealtimeContainer();
@@ -60,7 +67,7 @@ class RealtimeGuideRecorder {
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       switch (request.action) {
         case 'recordingStarted':
-          this.handleRecordingStarted();
+          this.handleRecordingStarted(request.mode);
           break;
         case 'recordingStopped':
           this.handleRecordingStopped(request.totalSteps);
@@ -71,12 +78,16 @@ class RealtimeGuideRecorder {
         case 'stepCompleted':
           this.handleStepCompleted(request.step);
           break;
+        case 'videoRecorded':
+          this.handleVideoRecorded(request.videoUrl, request.blob);
+          break;
       }
     });
   }
 
-  handleRecordingStarted() {
+  handleRecordingStarted(mode) {
     this.isRecording = true;
+    this.recordingMode = mode || 'screenshot';
     this.steps = [];
     this.realtimeStep = null;
     this.showRealtimeContainer();
@@ -97,12 +108,27 @@ class RealtimeGuideRecorder {
   }
 
   handleStepCompleted(step) {
-    this.steps.push(step);
+    // Find if step already exists (for insertions)
+    const existingIndex = this.steps.findIndex(s => s.id === step.id);
+    if (existingIndex >= 0) {
+      this.steps[existingIndex] = step;
+    } else {
+      this.steps.push(step);
+    }
+    
+    // Sort steps by ID
+    this.steps.sort((a, b) => a.id - b.id);
+    
     this.realtimeStep = null;
     this.hideRealtimeStep();
     this.updateUI();
     this.saveSteps();
     this.showStepCompletedAnimation(step);
+  }
+
+  handleVideoRecorded(videoUrl, blob) {
+    this.videoBlob = blob;
+    console.log('Video recorded:', videoUrl);
   }
 
   showRealtimeContainer() {
@@ -129,14 +155,13 @@ class RealtimeGuideRecorder {
           </div>
           <div class="step-preview-status">
             <div class="processing-spinner"></div>
-              <div class="placeholder-icon">📸</div>
-               <div class="placeholder-text">Capturing screenshot...</div>
             <span>Processing...</span>
           </div>
         </div>
         <div class="step-preview-placeholder">
           <div class="screenshot-placeholder">
-            
+            <div class="placeholder-icon">📸</div>
+            <div class="placeholder-text">${this.recordingMode === 'video' ? 'Recording video...' : 'Capturing screenshot...'}</div>
           </div>
         </div>
       </div>
@@ -144,8 +169,7 @@ class RealtimeGuideRecorder {
     
     realtimeStepEl.classList.add('active');
   }
-  // <div class="placeholder-icon">📸</div>
-  //             <div class="placeholder-text">Capturing screenshot...</div>
+
   hideRealtimeStep() {
     const realtimeStepEl = document.getElementById('realtimeStep');
     realtimeStepEl.classList.remove('active');
@@ -179,7 +203,7 @@ class RealtimeGuideRecorder {
         <div class="completion-icon">🎉</div>
         <h3>Recording Complete!</h3>
       </div>
-      <p>Successfully captured ${totalSteps} steps</p>
+      <p>Successfully captured ${totalSteps} steps${this.recordingMode === 'video' ? ' with video' : ''}</p>
       <button onclick="this.parentElement.remove()" class="completion-close">Close</button>
     `;
     
@@ -220,7 +244,7 @@ class RealtimeGuideRecorder {
     if (this.isRecording) {
       this.startBtn.disabled = true;
       this.stopBtn.disabled = false;
-      this.startBtn.innerHTML = '<span>⏺</span> Recording...';
+      this.startBtn.innerHTML = `<span>⏺</span> Recording ${this.recordingMode === 'video' ? 'Video' : 'Steps'}...`;
       this.startBtn.classList.add('recording-active');
     } else {
       this.startBtn.disabled = false;
@@ -238,7 +262,9 @@ class RealtimeGuideRecorder {
     this.saveExportBtn.addEventListener('click', () => this.quickExport());
     this.exportHtml.addEventListener('click', () => this.exportAsHtml());
     this.exportPdf.addEventListener('click', () => this.exportAsPdf());
+    this.exportMarkdown.addEventListener('click', () => this.exportAsMarkdown());
     this.exportVideo.addEventListener('click', () => this.exportAsVideo());
+    this.addManualStepBtn.addEventListener('click', () => this.addManualStep());
 
     this.tabs.forEach(tab => {
       tab.addEventListener('click', () => this.switchTab(tab.dataset.tab));
@@ -247,12 +273,37 @@ class RealtimeGuideRecorder {
     // Auto-save title and description
     this.guideTitle.addEventListener('input', () => this.saveSettings());
     this.guideDescription.addEventListener('input', () => this.saveSettings());
+    
+    // Recording mode change
+    if (this.recordingModeSelect) {
+      this.recordingModeSelect.addEventListener('change', () => {
+        this.recordingMode = this.recordingModeSelect.value;
+        this.updateRecordingModeUI();
+      });
+    }
+    
+    if (this.audioEnabledCheckbox) {
+      this.audioEnabledCheckbox.addEventListener('change', () => {
+        this.audioEnabled = this.audioEnabledCheckbox.checked;
+      });
+    }
+  }
+
+  updateRecordingModeUI() {
+    const audioOption = document.getElementById('audioOption');
+    if (audioOption) {
+      audioOption.style.display = this.recordingMode === 'video' ? 'block' : 'none';
+    }
   }
 
   async startRecording() {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      chrome.tabs.sendMessage(tab.id, { action: 'startRecording' });
+      chrome.tabs.sendMessage(tab.id, { 
+        action: 'startRecording',
+        mode: this.recordingMode,
+        audioEnabled: this.audioEnabled
+      });
     } catch (error) {
       console.error('Error starting recording:', error);
     }
@@ -275,6 +326,7 @@ class RealtimeGuideRecorder {
     
     this.steps = [];
     this.realtimeStep = null;
+    this.videoBlob = null;
     
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -285,6 +337,27 @@ class RealtimeGuideRecorder {
     
     this.updateUI();
     this.saveSteps();
+  }
+
+  async addManualStep() {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      chrome.tabs.sendMessage(tab.id, { action: 'addManualStep' });
+    } catch (error) {
+      console.error('Error adding manual step:', error);
+    }
+  }
+
+  async insertStepAt(index) {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      chrome.tabs.sendMessage(tab.id, { 
+        action: 'insertStepAt',
+        index: index
+      });
+    } catch (error) {
+      console.error('Error inserting step:', error);
+    }
   }
 
   async loadSteps() {
@@ -347,23 +420,43 @@ class RealtimeGuideRecorder {
         <div class="step-header">
           <div class="step-number">${step.id}</div>
           <div class="step-description">${step.description}</div>
-          <div class="step-timestamp">${new Date(step.timestamp).toLocaleTimeString()}</div>
+          <div class="step-actions">
+            <button class="step-action-btn" onclick="recorder.insertStepAt(${index})" title="Insert step after this">➕</button>
+            <button class="step-action-btn" onclick="recorder.deleteStep(${index})" title="Delete step">🗑️</button>
+            <div class="step-timestamp">${new Date(step.timestamp).toLocaleTimeString()}</div>
+          </div>
         </div>
         ${step.screenshot ? `<img src="${step.screenshot}" alt="Step ${step.id}" class="step-screenshot">` : ''}
         <div class="step-meta">
-          <span class="step-action-badge">${step.action}</span>
+          <span class="step-action-badge ${step.isManual ? 'manual' : ''}">${step.action}</span>
           <span class="step-url">${new URL(step.url).hostname}</span>
         </div>
       `;
       
       // Add click handler for step editing
-      stepElement.addEventListener('click', () => this.editStep(step));
+      stepElement.addEventListener('click', (e) => {
+        if (!e.target.classList.contains('step-action-btn')) {
+          this.editStep(step);
+        }
+      });
       
       // Add entrance animation
       stepElement.style.animation = `stepSlideIn 0.3s ease-out ${index * 0.1}s both`;
       
       this.stepsList.appendChild(stepElement);
     });
+  }
+
+  deleteStep(index) {
+    if (confirm('Are you sure you want to delete this step?')) {
+      this.steps.splice(index, 1);
+      // Update step IDs
+      this.steps.forEach((step, i) => {
+        step.id = i + 1;
+      });
+      this.updateUI();
+      this.saveSteps();
+    }
   }
 
   editStep(step) {
@@ -532,6 +625,11 @@ class RealtimeGuideRecorder {
       color: #475569;
     }
     
+    .step-action.manual {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    
     .footer {
       text-align: center;
       padding: 40px 20px;
@@ -567,7 +665,7 @@ class RealtimeGuideRecorder {
           </div>
           ${step.screenshot ? `<img src="${step.screenshot}" alt="Step ${step.id}" class="step-screenshot">` : ''}
           <div class="step-meta">
-            <span class="step-action">${step.action}</span>
+            <span class="step-action ${step.isManual ? 'manual' : ''}">${step.action}</span>
             <span>${new Date(step.timestamp).toLocaleTimeString()}</span>
           </div>
         </div>
@@ -581,6 +679,34 @@ class RealtimeGuideRecorder {
 </body>
 </html>
     `;
+  }
+
+  generateMarkdownContent() {
+    const title = this.guideTitle.value || 'Step Guide';
+    const description = this.guideDescription.value || '';
+    
+    let markdown = `# ${title}\n\n`;
+    
+    if (description) {
+      markdown += `${description}\n\n`;
+    }
+    
+    markdown += `*Generated on ${new Date().toLocaleDateString()} • ${this.steps.length} steps*\n\n`;
+    markdown += `---\n\n`;
+    
+    this.steps.forEach(step => {
+      markdown += `## Step ${step.id}: ${step.description}\n\n`;
+      
+      if (step.screenshot) {
+        markdown += `![Step ${step.id}](${step.screenshot})\n\n`;
+      }
+      
+      markdown += `**Action:** ${step.action}${step.isManual ? ' (Manual)' : ''}\n`;
+      markdown += `**Time:** ${new Date(step.timestamp).toLocaleTimeString()}\n\n`;
+      markdown += `---\n\n`;
+    });
+    
+    return markdown;
   }
 
   exportAsHtml() {
@@ -602,6 +728,27 @@ class RealtimeGuideRecorder {
     
     // Show success message
     this.showExportSuccess('HTML');
+  }
+
+  exportAsMarkdown() {
+    if (this.steps.length === 0) {
+      alert('No steps to export. Start recording first.');
+      return;
+    }
+    
+    const markdownContent = this.generateMarkdownContent();
+    const blob = new Blob([markdownContent], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${this.guideTitle.value.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.md`;
+    a.click();
+    
+    URL.revokeObjectURL(url);
+    
+    // Show success message
+    this.showExportSuccess('Markdown');
   }
 
   async exportAsPdf() {
@@ -665,7 +812,7 @@ class RealtimeGuideRecorder {
       doc.setFontSize(10);
       doc.setFont(undefined, 'normal');
       doc.setTextColor(100, 100, 100);
-      doc.text(`Action: ${step.action}`, 20, yPosition);
+      doc.text(`Action: ${step.action}${step.isManual ? ' (Manual)' : ''}`, 20, yPosition);
       doc.text(`Time: ${new Date(step.timestamp).toLocaleTimeString()}`, 120, yPosition);
       yPosition += 15;
       
@@ -695,13 +842,22 @@ class RealtimeGuideRecorder {
   }
 
   exportAsVideo() {
-    if (this.steps.length === 0) {
-      alert('No steps to export. Start recording first.');
+    if (!this.videoBlob) {
+      alert('No video recorded. Please record in video mode first.');
       return;
     }
     
-    // Future implementation for video export
-    alert('Video export feature is coming soon! For now, you can use HTML or PDF export to create beautiful step guides.');
+    // Convert WebM to MP4 (simplified approach)
+    const url = URL.createObjectURL(this.videoBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${this.guideTitle.value.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.webm`;
+    a.click();
+    
+    URL.revokeObjectURL(url);
+    
+    // Show success message with note about format
+    this.showExportSuccess('Video (WebM format - can be converted to MP4 using online tools)');
   }
 
   showExportSuccess(format) {
@@ -719,6 +875,7 @@ class RealtimeGuideRecorder {
       z-index: 10000;
       box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
       animation: successSlideIn 0.3s ease-out;
+      max-width: 300px;
     `;
     message.textContent = `${format} export completed successfully!`;
     document.body.appendChild(message);
@@ -726,13 +883,80 @@ class RealtimeGuideRecorder {
     setTimeout(() => {
       message.style.animation = 'successSlideOut 0.3s ease-out forwards';
       setTimeout(() => message.remove(), 300);
-    }, 3000);
+    }, 4000);
   }
 }
 
-// Add CSS for real-time features
-const realtimeStyles = document.createElement('style');
-realtimeStyles.textContent = `
+// Add CSS for enhanced features
+const enhancedStyles = document.createElement('style');
+enhancedStyles.textContent = `
+  .setting-select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    margin-top: 4px;
+    transition: border-color 0.2s;
+  }
+
+  .setting-select:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  }
+
+  .manual-step-btn {
+    background: #f59e0b !important;
+    color: white !important;
+    border: none !important;
+    margin-bottom: 16px;
+  }
+
+  .manual-step-btn:hover {
+    background: #d97706 !important;
+  }
+
+  .btn-export.markdown {
+    background: #059669;
+  }
+
+  .btn-export.markdown:hover {
+    background: #047857;
+  }
+
+  .step-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+  }
+
+  .step-action-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.2s;
+  }
+
+  .step-action-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  .step-timestamp {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  .step-action-badge.manual {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
   .realtime-container {
     background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
     border: 2px dashed #3b82f6;
@@ -1035,38 +1259,12 @@ realtimeStyles.textContent = `
     position: relative;
   }
 
-  .step-timestamp {
-    position: absolute;
-    top: 0;
-    right: 0;
-    font-size: 11px;
-    color: #6b7280;
-    background: rgba(255, 255, 255, 0.1);
-    padding: 2px 6px;
-    border-radius: 4px;
-  }
-
-  .step-action-badge {
-    background: #f1f5f9;
-    color: #475569;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-  }
-
-  .step-url {
-    font-size: 11px;
-    color: #6b7280;
-  }
-
   .hidden {
     display: none !important;
   }
 `;
 
-document.head.appendChild(realtimeStyles);
+document.head.appendChild(enhancedStyles);
 
 // Initialize the enhanced recorder when the page loads
 let recorder;

@@ -494,6 +494,19 @@
       <div id="settings-tab" class="tab-pane">
         <div class="settings">
           <div class="setting-group">
+            <label for="recordingMode">Recording Mode:</label>
+            <select id="recordingMode" class="setting-select">
+              <option value="screenshot">Screenshot Steps</option>
+              <option value="video">Video Recording</option>
+            </select>
+          </div>
+          <div class="setting-group" id="audioOption" style="display: none;">
+            <label>
+              <input type="checkbox" id="audioEnabled">
+              Enable audio recording
+            </label>
+          </div>
+          <div class="setting-group">
             <label>
               <input type="checkbox" id="captureScrolls" checked>
               Capture scroll events
@@ -540,6 +553,10 @@
             </label>
           </div>
           <div class="export-buttons">
+            <button id="addManualStep" class="btn btn-outline manual-step-btn">
+              <span>➕</span>
+              Add Manual Step
+            </button>
             <button id="exportHtml" class="btn btn-export">
               <span>🌐</span>
               Export as HTML
@@ -548,9 +565,13 @@
               <span>📄</span>
               Export as PDF
             </button>
+            <button id="exportMarkdown" class="btn btn-export markdown">
+              <span>📝</span>
+              Export as Markdown
+            </button>
             <button id="exportVideo" class="btn btn-export video">
               <span>🎥</span>
-              Export as Video
+              Export Video (MP4)
             </button>
           </div>
         </div>

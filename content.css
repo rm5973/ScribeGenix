@@ -360,3 +360,152 @@
     font-size: 14px;
   }
 }
+
+/* Manual step dialog */
+.manual-step-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10004;
+}
+
+.dialog-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: overlayFadeIn 0.3s ease-out;
+}
+
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.dialog-content {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  max-width: 400px;
+  width: 90%;
+  animation: dialogSlideIn 0.3s ease-out;
+}
+
+@keyframes dialogSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.dialog-content h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.dialog-content textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 12px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  resize: vertical;
+  margin-bottom: 16px;
+  transition: border-color 0.2s;
+}
+
+.dialog-content textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.dialog-actions button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: #3b82f6;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #2563eb;
+}
+
+.btn-secondary {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.btn-secondary:hover {
+  background: #e5e7eb;
+}
+
+/* Video recording indicator */
+.video-indicator {
+  background: rgba(239, 68, 68, 0.9);
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: 12px;
+  animation: videoPulse 2s infinite;
+}
+
+@keyframes videoPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Enhanced recording indicator for different modes */
+#recording-indicator.video-mode {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+}
+
+#recording-indicator.screenshot-mode {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+/* Input field state tracking improvements */
+.input-field-highlighted {
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5) !important;
+  transition: box-shadow 0.3s ease;
+}
+
+/* Enhanced focus indicators */
+.focus-captured {
+  animation: focusCaptured 0.5s ease-out;
+}
+
+@keyframes focusCaptured {
+  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+  50% { box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.4); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
