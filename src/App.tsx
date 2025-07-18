@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Square, Trash2, Download, Eye, Settings, FileText, Video, Image, Clock, Camera } from 'lucide-react';
+import { Play, Square, Trash2, Download, Eye, Settings, FileText, Video, Image, Clock, Camera, Plus, Mic, MicOff } from 'lucide-react';
 
 interface Step {
   id: number;
@@ -19,6 +19,8 @@ function App() {
   const [guideDescription, setGuideDescription] = useState('');
   const [realtimeStep, setRealtimeStep] = useState<Step | null>(null);
   const [showRealtimePreview, setShowRealtimePreview] = useState(true);
+  const [recordingMode, setRecordingMode] = useState<'screenshot' | 'video'>('screenshot');
+  const [audioEnabled, setAudioEnabled] = useState(false);
 
   const tabs = [
     { id: 'steps', label: 'Steps', icon: FileText },
@@ -65,6 +67,58 @@ function App() {
 
   const exportAsVideo = () => {
     console.log('Exporting as video...');
+  };
+
+  const addManualStep = () => {
+    const description = prompt('Enter step description:');
+    if (description) {
+      const newStep: Step = {
+        id: steps.length + 1,
+        action: 'manual',
+        description,
+        screenshot: '',
+        timestamp: Date.now(),
+        url: 'https://example.com',
+        element: null
+      };
+      setSteps(prev => [...prev, newStep]);
+    }
+  };
+
+  const insertStepAfter = (index: number) => {
+    const description = prompt('Enter step description:');
+    if (description) {
+      const newStep: Step = {
+        id: index + 2,
+        action: 'manual',
+        description,
+        screenshot: '',
+        timestamp: Date.now(),
+        url: 'https://example.com',
+        element: null
+      };
+      
+      const newSteps = [...steps];
+      newSteps.splice(index + 1, 0, newStep);
+      
+      // Update IDs for subsequent steps
+      newSteps.forEach((step, i) => {
+        step.id = i + 1;
+      });
+      
+      setSteps(newSteps);
+    }
+  };
+
+  const deleteStep = (index: number) => {
+    if (confirm('Are you sure you want to delete this step?')) {
+      const newSteps = steps.filter((_, i) => i !== index);
+      // Update IDs
+      newSteps.forEach((step, i) => {
+        step.id = i + 1;
+      });
+      setSteps(newSteps);
+    }
   };
 
   const generateHtmlContent = () => {
@@ -172,7 +226,7 @@ function App() {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-              <Video className="w-4 h-4" />
+              {recordingMode === 'video' ? <Video className="w-4 h-4" /> : <Camera className="w-4 h-4" />}
             </div>
             <h1 className="text-lg font-semibold">Guide Recorder</h1>
           </div>
@@ -180,7 +234,13 @@ function App() {
             {isRecording && (
               <div className="flex items-center space-x-2 bg-red-500/20 px-3 py-1 rounded-full">
                 <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
-                <span className="text-sm font-medium">Recording</span>
+                <span className="text-sm font-medium">Recording {recordingMode === 'video' ? 'Video' : 'Steps'}</span>
+              </div>
+            )}
+            {recordingMode === 'video' && audioEnabled && (
+              <div className="flex items-center space-x-1 bg-green-500/20 px-2 py-1 rounded-full">
+                <Mic className="w-3 h-3 text-green-400" />
+                <span className="text-xs text-green-400">Audio</span>
               </div>
             )}
             <button className="text-white/80 hover:text-white">
@@ -216,8 +276,8 @@ function App() {
             disabled={isRecording}
             className="flex-1 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
           >
-            <Play className="w-4 h-4" />
-            <span>{isRecording ? 'Recording...' : 'Start Recording'}</span>
+            {recordingMode === 'video' ? <Video className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+            <span>{isRecording ? `Recording ${recordingMode === 'video' ? 'Video' : 'Steps'}...` : `Start ${recordingMode === 'video' ? 'Video' : 'Step'} Recording`}</span>
           </button>
           <button
             onClick={stopRecording}
@@ -232,6 +292,13 @@ function App() {
             className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center"
           >
             <Trash2 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={addManualStep}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center"
+            title="Add Manual Step"
+          >
+            <Plus className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -313,9 +380,27 @@ function App() {
                       <div className="flex-1">
                         <p className="text-gray-900 font-medium">{step.description}</p>
                         <div className="mt-2 flex items-center space-x-4 text-sm text-gray-500">
-                          <span className="bg-gray-100 px-2 py-1 rounded-md">{step.action}</span>
+                          <span className={`px-2 py-1 rounded-md ${step.action === 'manual' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'}`}>
+                            {step.action}
+                          </span>
                           <span>{new Date(step.timestamp).toLocaleTimeString()}</span>
                         </div>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <button
+                          onClick={() => insertStepAfter(steps.indexOf(step))}
+                          className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                          title="Insert step after this"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => deleteStep(steps.indexOf(step))}
+                          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                          title="Delete step"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -347,6 +432,31 @@ function App() {
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Recording Settings</h3>
               <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Recording Mode</label>
+                  <select 
+                    value={recordingMode} 
+                    onChange={(e) => setRecordingMode(e.target.value as 'screenshot' | 'video')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                  >
+                    <option value="screenshot">Screenshot Steps</option>
+                    <option value="video">Video Recording</option>
+                  </select>
+                </div>
+                {recordingMode === 'video' && (
+                  <label className="flex items-center space-x-2">
+                    <input 
+                      type="checkbox" 
+                      checked={audioEnabled} 
+                      onChange={(e) => setAudioEnabled(e.target.checked)}
+                      className="rounded border-gray-300 text-indigo-600" 
+                    />
+                    <span className="text-sm text-gray-700 flex items-center space-x-1">
+                      {audioEnabled ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+                      <span>Enable audio recording</span>
+                    </span>
+                  </label>
+                )}
                 <label className="flex items-center space-x-2">
                   <input type="checkbox" checked={showRealtimePreview} onChange={(e) => setShowRealtimePreview(e.target.checked)} className="rounded border-gray-300 text-indigo-600" />
                   <span className="text-sm text-gray-700">Show real-time preview</span>
@@ -418,10 +528,14 @@ function App() {
                 <button
                   onClick={exportAsVideo}
                   className="w-full bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
+                  disabled={recordingMode !== 'video'}
                 >
                   <Video className="w-4 h-4" />
-                  <span>Export as Video</span>
+                  <span>Export as Video (MP4)</span>
                 </button>
+                {recordingMode !== 'video' && (
+                  <p className="text-sm text-gray-500 text-center">Video export requires video recording mode</p>
+                )}
               </div>
             </div>
           </div>
@@ -434,6 +548,7 @@ function App() {
           <span className="text-sm text-gray-500">
             {steps.length} steps recorded
             {isRecording && <span className="ml-2 text-green-600 font-medium">• Live</span>}
+            {recordingMode === 'video' && <span className="ml-2 text-purple-600 font-medium">• Video Mode</span>}
           </span>
           <div className="flex space-x-2">
             <button className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-sm font-medium transition-colors flex items-center space-x-1">
