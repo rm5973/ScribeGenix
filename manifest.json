@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "Guide Recorder - Step Guide Creator",
+  "version": "1.0.0",
+  "description": "Record user actions and create step-by-step guides with screenshots and meaningful descriptions",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "sidePanel",
+    "tabs",
+    "desktopCapture"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at":"document_idle"
+    }
+  ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Guide Recorder",
+    "default_icon": {
+      
+    }
+  },
+  "icons": {
+    
+  },
+  "web_accessible_resources": [
+    {
+    "resources": ["content.js", "content.css", "*.png", "*.jpg", "*.gif"],
+    "matches": ["<all_urls>"]
+    }
+  ]
+}

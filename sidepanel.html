@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Guide Recorder - Step Guide Creator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f8fafc;
+      color: #1e293b;
+      line-height: 1.5;
+      overflow-x: hidden;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      width: 100%;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      color: white;
+      padding: 16px;
+      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+    }
+
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      width: 28px;
+      height: 28px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .logo h1 {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .controls {
+      padding: 16px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 14px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      flex: 1;
+      min-width: 0;
+      justify-content: center;
+    }
+
+    .btn-primary {
+      background: #22c55e;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #16a34a;
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: #ef4444;
+      color: white;
+    }
+
+    .btn-secondary:hover {
+      background: #dc2626;
+      transform: translateY(-1px);
+    }
+
+    .btn-outline {
+      background: white;
+      color: #6b7280;
+      border: 1px solid #d1d5db;
+    }
+
+    .btn-outline:hover {
+      background: #f9fafb;
+      border-color: #9ca3af;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .tabs {
+      display: flex;
+      background: white;
+      border-bottom: 1px solid #e5e7eb;
+      overflow-x: auto;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 14px 12px;
+      background: none;
+      border: none;
+      font-size: 13px;
+      font-weight: 500;
+      color: #6b7280;
+      cursor: pointer;
+      transition: all 0.2s;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+      min-width: 0;
+    }
+
+    .tab.active {
+      color: #6366f1;
+      border-bottom-color: #6366f1;
+      background: #f8fafc;
+    }
+
+    .tab:hover {
+      background: #f9fafb;
+    }
+
+    .tab-content {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .tab-pane {
+      height: 100%;
+      display: none;
+      overflow-y: auto;
+    }
+
+    .tab-pane.active {
+      display: block;
+    }
+
+    .steps-container {
+      height: 100%;
+      position: relative;
+    }
+
+    .steps-list {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .step-item {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      overflow: hidden;
+      transition: all 0.2s;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .step-item:hover {
+      border-color: #6366f1;
+      box-shadow: 0 8px 25px rgba(99, 102, 241, 0.15);
+      transform: translateY(-2px);
+    }
+
+    .step-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 16px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .step-number {
+      background: #6366f1;
+      color: white;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .step-description {
+      font-size: 14px;
+      font-weight: 500;
+      color: #374151;
+      line-height: 1.4;
+    }
+
+    .step-screenshot {
+      width: 100%;
+      height: 120px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .step-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: #f8fafc;
+      font-size: 11px;
+      color: #6b7280;
+    }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      text-align: center;
+      padding: 40px 20px;
+    }
+
+    .empty-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.6;
+    }
+
+    .empty-state h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #374151;
+    }
+
+    .empty-state p {
+      font-size: 14px;
+      color: #6b7280;
+      max-width: 250px;
+      line-height: 1.4;
+    }
+
+    .settings, .export-options {
+      padding: 16px;
+    }
+
+    .setting-group {
+      margin-bottom: 20px;
+    }
+
+    .setting-group label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      color: #374151;
+      cursor: pointer;
+    }
+
+    .setting-group input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+    }
+
+    .export-options h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      color: #374151;
+    }
+
+    .export-settings {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .export-settings label {
+      font-size: 14px;
+      color: #374151;
+      font-weight: 500;
+    }
+
+    .export-settings input,
+    .export-settings textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 14px;
+      margin-top: 6px;
+      transition: border-color 0.2s;
+    }
+
+    .export-settings input:focus,
+    .export-settings textarea:focus {
+      outline: none;
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+
+    .export-settings textarea {
+      resize: vertical;
+      min-height: 70px;
+    }
+
+    .export-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .btn-export {
+      background: #3b82f6;
+      color: white;
+      justify-content: center;
+      padding: 12px 16px;
+    }
+
+    .btn-export:hover {
+      background: #2563eb;
+      transform: translateY(-1px);
+    }
+
+    .btn-export.pdf {
+      background: #dc2626;
+    }
+
+    .btn-export.pdf:hover {
+      background: #b91c1c;
+    }
+
+    .btn-export.video {
+      background: #7c3aed;
+    }
+
+    .btn-export.video:hover {
+      background: #6d28d9;
+    }
+
+    .footer {
+      padding: 16px;
+      background: white;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .step-count {
+      font-size: 13px;
+      color: #6b7280;
+      font-weight: 500;
+    }
+
+    .footer-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-ghost {
+      background: none;
+      color: #6b7280;
+      border: 1px solid #d1d5db;
+      padding: 8px 12px;
+      font-size: 12px;
+    }
+
+    .btn-ghost:hover {
+      background: #f9fafb;
+      border-color: #9ca3af;
+    }
+
+    .btn-primary-small {
+      background: #6366f1;
+      color: white;
+      padding: 8px 12px;
+      font-size: 12px;
+    }
+
+    .btn-primary-small:hover {
+      background: #5b21b6;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* Scrollbar styles */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="header-content">
+        <div class="logo">
+          <div class="logo-icon">📹</div>
+          <h1>Guide Recorder</h1>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="startBtn" class="btn btn-primary">
+        <span>●</span>
+        Start Recording
+      </button>
+      <button id="stopBtn" class="btn btn-secondary" disabled>
+        <span>⏹</span>
+        Stop Recording
+      </button>
+      <button id="clearBtn" class="btn btn-outline">
+        <span>🗑</span>
+        Clear
+      </button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="steps">Steps</button>
+      <button class="tab" data-tab="annotate">Annotate</button>
+      <button class="tab" data-tab="settings">Settings</button>
+      <button class="tab" data-tab="export">Export</button>
+    </div>
+
+    <div class="tab-content">
+      <div id="steps-tab" class="tab-pane active">
+        <div class="steps-container">
+          <div id="stepsList" class="steps-list"></div>
+          <div id="emptyState" class="empty-state">
+            <div class="empty-icon">📋</div>
+            <h3>No steps recorded yet</h3>
+            <p>Click "Start Recording" to begin capturing user actions and create your step guide</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="annotate-tab" class="tab-pane">
+        <div class="empty-state">
+          <div class="empty-icon">✏️</div>
+          <h3>Annotation Tools</h3>
+          <p>Add annotations and highlights to your recorded steps</p>
+        </div>
+      </div>
+
+      <div id="settings-tab" class="tab-pane">
+        <div class="settings">
+          <div class="setting-group">
+            <label>
+              <input type="checkbox" id="captureScrolls" checked>
+              Capture scroll events
+            </label>
+          </div>
+          <div class="setting-group">
+            <label>
+              <input type="checkbox" id="captureKeyPresses" checked>
+              Capture key presses
+            </label>
+          </div>
+          <div class="setting-group">
+            <label>
+              <input type="checkbox" id="autoDescriptions" checked>
+              Auto-generate smart descriptions
+            </label>
+          </div>
+          <div class="setting-group">
+            <label>
+              <input type="checkbox" id="highlightElements" checked>
+              Highlight elements during capture
+            </label>
+          </div>
+          <div class="setting-group">
+            <label>
+              <input type="checkbox" id="realtimePreview" checked>
+              Show real-time preview
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div id="export-tab" class="tab-pane">
+        <div class="export-options">
+          <h3>Export Your Guide</h3>
+          <div class="export-settings">
+            <label>
+              Guide title:
+              <input type="text" id="guideTitle" placeholder="My Step Guide" value="My Step Guide">
+            </label>
+            <label>
+              Description:
+              <textarea id="guideDescription" placeholder="Brief description of this guide"></textarea>
+            </label>
+          </div>
+          <div class="export-buttons">
+            <button id="exportHtml" class="btn btn-export">
+              <span>🌐</span>
+              Export as HTML
+            </button>
+            <button id="exportPdf" class="btn btn-export pdf">
+              <span>📄</span>
+              Export as PDF
+            </button>
+            <button id="exportVideo" class="btn btn-export video">
+              <span>🎥</span>
+              Export as Video
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="step-count">
+        <span id="stepCount">0</span> steps recorded
+      </div>
+      <div class="footer-actions">
+        <button id="previewBtn" class="btn btn-ghost">
+          <span>👁</span>
+          Preview
+        </button>
+        <button id="saveExportBtn" class="btn btn-primary-small">
+          <span>💾</span>
+          Save & Export
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="realtime-sidepanel.js"></script>
+</body>
+</html>
