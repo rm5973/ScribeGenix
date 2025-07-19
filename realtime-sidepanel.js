@@ -364,10 +364,35 @@ class RealtimeGuideRecorder {
 
   async insertStepAt(index) {
     try {
+      const description = prompt('Enter step description:');
+      if (!description) return;
+      
+      const newStep = {
+        id: index + 2, // Will be adjusted when inserted
+        action: 'manual',
+        description: description,
+        screenshot: null,
+        timestamp: Date.now(),
+        url: window.location.href,
+        element: null,
+        isManual: true
+      };
+      
+      // Insert the step at the specified position
+      this.steps.splice(index + 1, 0, newStep);
+      
+      // Update IDs for all steps
+      this.steps.forEach((step, i) => {
+        step.id = i + 1;
+      });
+      
+      this.updateUI();
+      this.saveSteps();
+      
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       chrome.tabs.sendMessage(tab.id, { 
-        action: 'insertStepAt',
-        index: index
+        action: 'stepInserted',
+        steps: this.steps
       });
     } catch (error) {
       console.error('Error inserting step:', error);
@@ -471,8 +496,8 @@ class RealtimeGuideRecorder {
           <div class="step-number">${step.id}</div>
           <div class="step-description">${step.description} ${videoIndicator}</div>
           <div class="step-actions">
-            <button class="step-action-btn" onclick="recorder.insertStepAt(${index})" title="Insert step after this">➕</button>
-            <button class="step-action-btn" onclick="recorder.deleteStep(${index})" title="Delete step">🗑️</button>
+            <button class="step-action-btn insert-btn" data-index="${index}" title="Insert step after this">➕</button>
+            <button class="step-action-btn delete-btn" data-index="${index}" title="Delete step">🗑️</button>
             <div class="step-timestamp">${new Date(step.timestamp).toLocaleTimeString()}</div>
           </div>
         </div>
@@ -483,9 +508,20 @@ class RealtimeGuideRecorder {
         </div>
       `;
       
+      // Add event listeners for the buttons
+      stepElement.querySelector('.insert-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.insertStepAt(index);
+      });
+      
+      stepElement.querySelector('.delete-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.deleteStep(index);
+      });
+      
       // Add click handler for step editing
       stepElement.addEventListener('click', (e) => {
-        if (!e.target.classList.contains('step-action-btn')) {
+        if (!e.target.classList.contains('step-action-btn') && !e.target.closest('.step-actions')) {
           this.editStep(step);
         }
       });
@@ -500,12 +536,22 @@ class RealtimeGuideRecorder {
   deleteStep(index) {
     if (confirm('Are you sure you want to delete this step?')) {
       this.steps.splice(index, 1);
-      // Update step IDs
+      // Update step IDs for all remaining steps
       this.steps.forEach((step, i) => {
         step.id = i + 1;
       });
       this.updateUI();
       this.saveSteps();
+      
+      // Notify content script of the change
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]) {
+          chrome.tabs.sendMessage(tabs[0].id, { 
+            action: 'stepDeleted',
+            steps: this.steps
+          });
+        }
+      });
     }
   }
 
