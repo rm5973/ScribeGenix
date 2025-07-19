@@ -168,13 +168,54 @@ class ActionDescriptor {
 // Real-time preview system
 class RealtimePreview {
   static showActionPreview(element, action, description) {
-    // Popup previews disabled - no longer showing action previews
-    return;
+    if (!realtimePreviewEnabled) return;
+    
+    // Create floating preview
+    const preview = document.createElement('div');
+    preview.className = 'realtime-action-preview';
+    preview.innerHTML = `
+      <div class="preview-header">
+        <div class="preview-icon">📸</div>
+        <div class="preview-text">
+          <div class="preview-action">${action.toUpperCase()}</div>
+          <div class="preview-description">${description}</div>
+        </div>
+      </div>
+      <div class="preview-progress">
+        <div class="progress-bar"></div>
+      </div>
+    `;
+    
+    document.body.appendChild(preview);
+    
+    // Position near the element
+    if (element) {
+      const rect = element.getBoundingClientRect();
+      preview.style.top = Math.max(10, rect.top - 80) + 'px';
+      preview.style.left = Math.min(window.innerWidth - 320, rect.left) + 'px';
+    }
+    
+    // Auto-remove after animation
+    setTimeout(() => {
+      preview.remove();
+    }, 3000);
   }
 
   static showScreenshotCapture() {
-    // Screenshot capture overlay disabled - no longer showing capture indicator
-    return;
+    const overlay = document.createElement('div');
+    overlay.className = 'screenshot-capture-overlay';
+    overlay.innerHTML = `
+      <div class="capture-indicator">
+        <div class="capture-flash"></div>
+        <div class="capture-text">📷 Capturing Screenshot...</div>
+      </div>
+    `;
+    
+    document.body.appendChild(overlay);
+    
+    setTimeout(() => {
+      overlay.remove();
+    }, 1000);
   }
 
   static updateStepCounter(count) {
@@ -794,13 +835,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     case 'setRecordingMode':
       recordingMode = request.mode;
       audioEnabled = request.audioEnabled || false;
-      sendResponse({ success: true });
-      break;
-    case 'stepInserted':
-    case 'stepDeleted':
-      // Update local steps array to match side panel
-      recordingSteps = request.steps || [];
-      stepCounter = recordingSteps.length;
       sendResponse({ success: true });
       break;
     case 'getVideoRecording':
