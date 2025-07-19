@@ -127,7 +127,23 @@ class RealtimeGuideRecorder {
   }
 
   handleVideoRecorded(videoUrl, blob) {
-    this.videoBlob = blob;
+    // Convert blob to base64 for storage
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64Data = reader.result;
+      this.videoBlob = blob; // Keep in memory for immediate use
+      
+      // Save to storage for persistence
+      chrome.storage.local.set({
+        videoRecording: {
+          data: base64Data,
+          timestamp: Date.now(),
+          mimeType: blob.type || 'video/webm'
+        }
+      });
+    };
+    reader.readAsDataURL(blob);
+    
     console.log('Video recorded:', videoUrl);
   }
 
@@ -328,6 +344,9 @@ class RealtimeGuideRecorder {
     this.realtimeStep = null;
     this.videoBlob = null;
     
+    // Clear video recording from storage
+    chrome.storage.local.remove(['videoRecording']);
+    
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       chrome.tabs.sendMessage(tab.id, { action: 'clearSteps' });
@@ -362,12 +381,26 @@ class RealtimeGuideRecorder {
 
   async loadSteps() {
     try {
-      const result = await chrome.storage.local.get(['recordingSteps', 'guideSettings']);
+      const result = await chrome.storage.local.get(['recordingSteps', 'guideSettings', 'videoRecording']);
       this.steps = result.recordingSteps || [];
       
       if (result.guideSettings) {
         this.guideTitle.value = result.guideSettings.title || 'My Step Guide';
         this.guideDescription.value = result.guideSettings.description || '';
+      }
+      
+      // Restore video blob if available
+      if (result.videoRecording && result.videoRecording.data) {
+        // Convert base64 back to blob
+        fetch(result.videoRecording.data)
+          .then(res => res.blob())
+          .then(blob => {
+            this.videoBlob = blob;
+            console.log('Video recording restored from storage');
+          })
+          .catch(err => {
+            console.error('Error restoring video blob:', err);
+          });
       }
       
       this.updateUI();
@@ -400,6 +433,16 @@ class RealtimeGuideRecorder {
   updateUI() {
     this.stepCount.textContent = this.steps.length;
     
+    // Update video export button state
+    const exportVideoBtn = document.getElementById('exportVideo');
+    if (exportVideoBtn) {
+      chrome.storage.local.get(['videoRecording'], (result) => {
+        const hasVideo = this.videoBlob || (result.videoRecording && result.videoRecording.data);
+        exportVideoBtn.disabled = !hasVideo;
+        exportVideoBtn.title = hasVideo ? 'Export recorded video' : 'No video recording available';
+      });
+    }
+    
     if (this.steps.length === 0 && !this.realtimeStep) {
       this.stepsList.classList.add('hidden');
       this.emptyState.classList.remove('hidden');
@@ -416,10 +459,14 @@ class RealtimeGuideRecorder {
     this.steps.forEach((step, index) => {
       const stepElement = document.createElement('div');
       stepElement.className = 'step-item';
+      
+      // Add video indicator if this recording session had video
+      const videoIndicator = this.videoBlob ? '<span class="video-indicator-badge">🎥</span>' : '';
+      
       stepElement.innerHTML = `
         <div class="step-header">
           <div class="step-number">${step.id}</div>
-          <div class="step-description">${step.description}</div>
+          <div class="step-description">${step.description} ${videoIndicator}</div>
           <div class="step-actions">
             <button class="step-action-btn" onclick="recorder.insertStepAt(${index})" title="Insert step after this">➕</button>
             <button class="step-action-btn" onclick="recorder.deleteStep(${index})" title="Delete step">🗑️</button>
@@ -847,13 +894,35 @@ class RealtimeGuideRecorder {
       return;
     }
     
-    if (this.recordingMode !== 'video') {
-      alert('Video export is only available when recording in video mode. Please record in video mode first.');
+    // Check if we have a video blob in memory or storage
+    if (!this.videoBlob) {
+      // Try to load from storage
+      chrome.storage.local.get(['videoRecording'], (result) => {
+        if (result.videoRecording && result.videoRecording.data) {
+          // Convert base64 back to blob and export
+          fetch(result.videoRecording.data)
+            .then(res => res.blob())
+            .then(blob => {
+              this.videoBlob = blob;
+              this.performVideoExport();
+            })
+            .catch(err => {
+              console.error('Error loading video from storage:', err);
+              alert('No video recording available. Please record a video first using video recording mode.');
+            });
+        } else {
+          alert('No video recording available. Please record a video first using video recording mode.');
+        }
+      });
       return;
     }
     
+    this.performVideoExport();
+  }
+  
+  performVideoExport() {
     if (!this.videoBlob || !(this.videoBlob instanceof Blob)) {
-      alert('No video recording available. Please record a video first.');
+      alert('Invalid video data. Please record a new video.');
       return;
     }
 
@@ -1268,6 +1337,25 @@ enhancedStyles.textContent = `
 
   .hidden {
     display: none !important;
+  }
+
+  .video-indicator-badge {
+    background: #7c3aed;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    margin-left: 8px;
+  }
+
+  #exportVideo:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  #exportVideo:disabled:hover {
+    background: #7c3aed !important;
+    transform: none !important;
   }
 `;
 
