@@ -422,7 +422,13 @@ function startRecording() {
   
   // Start video recording if in video mode
   if (recordingMode === 'video') {
-    VideoRecorder.startVideoRecording();
+    VideoRecorder.startVideoRecording().then(success => {
+      if (!success) {
+        console.error('Failed to start video recording');
+        // Continue with screenshot mode as fallback
+        recordingMode = 'screenshot';
+      }
+    });
   }
   
   // Enhanced event listeners
@@ -831,6 +837,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       audioEnabled = request.audioEnabled || false;
       sendResponse({ success: true });
       break;
+    case 'getVideoRecording':
+      // Check if we have video recording in storage
+      chrome.storage.local.get(['videoRecording'], (result) => {
+        sendResponse({ 
+          hasVideo: !!result.videoRecording,
+          videoData: result.videoRecording || null
+        });
+      });
+      return true; // Keep message channel open for async response
   }
 });
 
