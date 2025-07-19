@@ -422,13 +422,7 @@ function startRecording() {
   
   // Start video recording if in video mode
   if (recordingMode === 'video') {
-    VideoRecorder.startVideoRecording().then(success => {
-      if (!success) {
-        console.error('Failed to start video recording');
-        // Continue with screenshot mode as fallback
-        recordingMode = 'screenshot';
-      }
-    });
+    VideoRecorder.startVideoRecording();
   }
   
   // Enhanced event listeners
