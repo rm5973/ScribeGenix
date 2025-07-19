@@ -320,37 +320,6 @@ class VideoRecorder {
     }
   }
 }
-        chrome.runtime.sendMessage({
-          action: 'videoRecorded',
-          videoUrl: videoUrl,
-          blob: blob
-        });
-      };
-
-      mediaRecorder.start();
-      isVideoRecording = true;
-
-      // Stop all tracks when recording stops
-      stream.getTracks().forEach(track => {
-        track.onended = () => {
-          isVideoRecording = false;
-        };
-      });
-
-      return true;
-    } catch (error) {
-      console.error('Error starting video recording:', error);
-      return false;
-    }
-  }
-
-  static stopVideoRecording() {
-    if (mediaRecorder && isVideoRecording) {
-      mediaRecorder.stop();
-      isVideoRecording = false;
-    }
-  }
-}
 
 // Manual step insertion functionality
 class ManualStepManager {
@@ -868,15 +837,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       audioEnabled = request.audioEnabled || false;
       sendResponse({ success: true });
       break;
-    case 'getVideoRecording':
-      // Check if we have video recording in storage
-      chrome.storage.local.get(['videoRecording'], (result) => {
-        sendResponse({ 
-          hasVideo: !!result.videoRecording,
-          videoData: result.videoRecording || null
-        });
-      });
-      return true; // Keep message channel open for async response
   }
 });
 
