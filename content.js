@@ -10,6 +10,7 @@ let audioEnabled = false;
 let manualStepMode = false;
 let insertStepIndex = -1;
 let inputFieldStates = new Map(); // Track input field interactions
+let currentVideoStream = null;
 
 // Enhanced element detection and description generation
 class ActionDescriptor {
@@ -241,6 +242,8 @@ class VideoRecorder {
         audio: audioEnabled
       });
 
+      currentVideoStream = stream;
+
       mediaRecorder = new MediaRecorder(stream, {
         mimeType: 'video/webm;codecs=vp9'
       });
@@ -255,9 +258,68 @@ class VideoRecorder {
 
       mediaRecorder.onstop = () => {
         const blob = new Blob(recordedChunks, { type: 'video/webm' });
-        const videoUrl = URL.createObjectURL(blob);
         
-        // Send video data to side panel
+        // Convert blob to base64 for storage and transmission
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64Data = reader.result;
+          
+          // Send video data to side panel
+          chrome.runtime.sendMessage({
+            action: 'videoRecorded',
+            videoData: base64Data,
+            mimeType: blob.type,
+            size: blob.size,
+            timestamp: Date.now()
+          });
+          
+          // Also save to storage
+          chrome.storage.local.set({
+            videoRecording: {
+              data: base64Data,
+              mimeType: blob.type,
+              size: blob.size,
+              timestamp: Date.now()
+            }
+          });
+        };
+        reader.readAsDataURL(blob);
+      };
+
+      mediaRecorder.start();
+      isVideoRecording = true;
+
+      // Stop all tracks when recording stops
+      stream.getTracks().forEach(track => {
+        track.onended = () => {
+          isVideoRecording = false;
+          currentVideoStream = null;
+        };
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error starting video recording:', error);
+      return false;
+    }
+  }
+
+  static stopVideoRecording() {
+    if (mediaRecorder && isVideoRecording) {
+      mediaRecorder.stop();
+      
+      // Stop all tracks
+      if (currentVideoStream) {
+        currentVideoStream.getTracks().forEach(track => {
+          track.stop();
+        });
+        currentVideoStream = null;
+      }
+      
+      isVideoRecording = false;
+    }
+  }
+}
         chrome.runtime.sendMessage({
           action: 'videoRecorded',
           videoUrl: videoUrl,
@@ -391,7 +453,13 @@ function startRecording() {
   
   // Start video recording if in video mode
   if (recordingMode === 'video') {
-    VideoRecorder.startVideoRecording();
+    VideoRecorder.startVideoRecording().then(success => {
+      if (!success) {
+        console.error('Failed to start video recording');
+        // Continue with screenshot mode as fallback
+        recordingMode = 'screenshot';
+      }
+    });
   }
   
   // Enhanced event listeners
@@ -800,6 +868,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       audioEnabled = request.audioEnabled || false;
       sendResponse({ success: true });
       break;
+    case 'getVideoRecording':
+      // Check if we have video recording in storage
+      chrome.storage.local.get(['videoRecording'], (result) => {
+        sendResponse({ 
+          hasVideo: !!result.videoRecording,
+          videoData: result.videoRecording || null
+        });
+      });
+      return true; // Keep message channel open for async response
   }
 });
 
