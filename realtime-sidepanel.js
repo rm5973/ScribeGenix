@@ -79,7 +79,7 @@ class RealtimeGuideRecorder {
           this.handleStepCompleted(request.step);
           break;
         case 'videoRecorded':
-          this.handleVideoRecorded(request.videoUrl, request.blob);
+          this.handleVideoRecorded(request.videoData, request.mimeType, request.size);
           break;
       }
     });
@@ -126,25 +126,20 @@ class RealtimeGuideRecorder {
     this.showStepCompletedAnimation(step);
   }
 
-  handleVideoRecorded(videoUrl, blob) {
-    // Convert blob to base64 for storage
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64Data = reader.result;
-      this.videoBlob = blob; // Keep in memory for immediate use
-      
-      // Save to storage for persistence
-      chrome.storage.local.set({
-        videoRecording: {
-          data: base64Data,
-          timestamp: Date.now(),
-          mimeType: blob.type || 'video/webm'
-        }
-      });
-    };
-    reader.readAsDataURL(blob);
+  handleVideoRecorded(videoData, mimeType, size) {
+    console.log('Video recorded:', { mimeType, size, dataLength: videoData?.length });
     
-    console.log('Video recorded:', videoUrl);
+    // Convert base64 back to blob for immediate use
+    fetch(videoData)
+      .then(res => res.blob())
+      .then(blob => {
+        this.videoBlob = blob;
+        console.log('Video blob created:', blob.size, 'bytes');
+        this.updateUI(); // Update UI to enable video export button
+      })
+      .catch(err => {
+        console.error('Error creating video blob:', err);
+      });
   }
 
   showRealtimeContainer() {
@@ -391,16 +386,20 @@ class RealtimeGuideRecorder {
       
       // Restore video blob if available
       if (result.videoRecording && result.videoRecording.data) {
+        console.log('Loading video from storage:', result.videoRecording.size, 'bytes');
         // Convert base64 back to blob
         fetch(result.videoRecording.data)
           .then(res => res.blob())
           .then(blob => {
             this.videoBlob = blob;
-            console.log('Video recording restored from storage');
+            console.log('Video recording restored from storage:', blob.size, 'bytes');
+            this.updateUI(); // Update UI to enable video export button
           })
           .catch(err => {
             console.error('Error restoring video blob:', err);
           });
+      } else {
+        console.log('No video recording found in storage');
       }
       
       this.updateUI();
@@ -436,11 +435,15 @@ class RealtimeGuideRecorder {
     // Update video export button state
     const exportVideoBtn = document.getElementById('exportVideo');
     if (exportVideoBtn) {
-      chrome.storage.local.get(['videoRecording'], (result) => {
-        const hasVideo = this.videoBlob || (result.videoRecording && result.videoRecording.data);
-        exportVideoBtn.disabled = !hasVideo;
-        exportVideoBtn.title = hasVideo ? 'Export recorded video' : 'No video recording available';
-      });
+      const hasVideo = !!this.videoBlob;
+      exportVideoBtn.disabled = !hasVideo;
+      exportVideoBtn.title = hasVideo ? 'Export recorded video' : 'No video recording available';
+      
+      if (hasVideo) {
+        console.log('Video export button enabled - video blob size:', this.videoBlob.size);
+      } else {
+        console.log('Video export button disabled - no video blob');
+      }
     }
     
     if (this.steps.length === 0 && !this.realtimeStep) {
@@ -889,47 +892,62 @@ class RealtimeGuideRecorder {
   }
 
   exportAsVideo() {
+    console.log('exportAsVideo called');
+    
     if (this.steps.length === 0) {
       alert('No steps to export. Start recording first.');
       return;
     }
     
-    // Check if we have a video blob in memory or storage
+    console.log('Checking video blob:', !!this.videoBlob);
+    
     if (!this.videoBlob) {
+      console.log('No video blob in memory, checking storage...');
       // Try to load from storage
       chrome.storage.local.get(['videoRecording'], (result) => {
+        console.log('Storage result:', !!result.videoRecording);
         if (result.videoRecording && result.videoRecording.data) {
+          console.log('Found video in storage, converting to blob...');
           // Convert base64 back to blob and export
           fetch(result.videoRecording.data)
             .then(res => res.blob())
             .then(blob => {
+              console.log('Blob created from storage:', blob.size, 'bytes');
               this.videoBlob = blob;
               this.performVideoExport();
             })
             .catch(err => {
               console.error('Error loading video from storage:', err);
-              alert('No video recording available. Please record a video first using video recording mode.');
+              alert('Error loading video from storage. Please record a new video.');
             });
         } else {
+          console.log('No video found in storage');
           alert('No video recording available. Please record a video first using video recording mode.');
         }
       });
       return;
     }
     
+    console.log('Video blob available, performing export...');
     this.performVideoExport();
   }
   
   performVideoExport() {
+    console.log('performVideoExport called with blob:', !!this.videoBlob);
+    
     if (!this.videoBlob || !(this.videoBlob instanceof Blob)) {
+      console.error('Invalid video blob:', this.videoBlob);
       alert('Invalid video data. Please record a new video.');
       return;
     }
 
+    console.log('Creating download URL for video blob:', this.videoBlob.size, 'bytes');
     const url = URL.createObjectURL(this.videoBlob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `${this.guideTitle.value.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_recording.webm`;
+    
+    console.log('Triggering download:', a.download);
     a.click();
     
     URL.revokeObjectURL(url);
