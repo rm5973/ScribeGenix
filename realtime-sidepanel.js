@@ -842,22 +842,29 @@ class RealtimeGuideRecorder {
   }
 
   exportAsVideo() {
-    if (!this.videoBlob) {
-      alert('No video recorded. Please record in video mode first.');
+    if (this.steps.length === 0) {
+      alert('No steps to export. Start recording first.');
       return;
     }
     
-    // Convert WebM to MP4 (simplified approach)
+    if (this.recordingMode !== 'video') {
+      alert('Video export is only available when recording in video mode. Please record in video mode first.');
+      return;
+    }
+    
+    if (!this.videoBlob || !(this.videoBlob instanceof Blob)) {
+      alert('No video recording available. Please record a video first.');
+      return;
+    }
+
     const url = URL.createObjectURL(this.videoBlob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${this.guideTitle.value.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.webm`;
+    a.download = `${this.guideTitle.value.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_recording.webm`;
     a.click();
     
     URL.revokeObjectURL(url);
-    
-    // Show success message with note about format
-    this.showExportSuccess('Video (WebM format - can be converted to MP4 using online tools)');
+    this.showExportSuccess('Video');
   }
 
   showExportSuccess(format) {
