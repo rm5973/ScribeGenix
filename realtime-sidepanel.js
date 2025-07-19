@@ -842,20 +842,30 @@ class RealtimeGuideRecorder {
   }
 
   exportAsVideo() {
-  const blob = this.recorder?.getBlob?.();
-  if (!blob || !(blob instanceof Blob)) {
-    console.error("Cannot export video: Invalid or missing blob");
-    alert("Recording not available or failed. Please try again.");
-    return;
-  }
+    if (this.steps.length === 0) {
+      alert('No steps to export. Start recording first.');
+      return;
+    }
+    
+    if (this.recordingMode !== 'video') {
+      alert('Video export is only available when recording in video mode. Please record in video mode first.');
+      return;
+    }
+    
+    if (!this.videoBlob || !(this.videoBlob instanceof Blob)) {
+      alert('No video recording available. Please record a video first.');
+      return;
+    }
 
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "recorded-video.webm";
-  a.click();
-  URL.revokeObjectURL(url);
-}
+    const url = URL.createObjectURL(this.videoBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${this.guideTitle.value.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_recording.webm`;
+    a.click();
+    
+    URL.revokeObjectURL(url);
+    this.showExportSuccess('Video');
+  }
 
   showExportSuccess(format) {
     const message = document.createElement('div');
